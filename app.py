@@ -21,6 +21,7 @@ from src.insights.analyzer import (
     biggest_weakness,
     trend_narrative,
 )
+from src.ui.map_view import render_course_map
 from src.ui.components import (
     metric_card,
     no_data_notice,
@@ -173,11 +174,12 @@ n_rounds = metrics.get("rounds_played", 0)
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
 
-tab_overview, tab_metrics, tab_insights, tab_recommendations = st.tabs([
+tab_overview, tab_metrics, tab_insights, tab_recommendations, tab_map = st.tabs([
     "📊 Overview",
     "📈 Metrics",
     "🔍 Insights",
     "🎯 Recommendations",
+    "🗺️ Course Map",
 ])
 
 
@@ -430,3 +432,15 @@ with tab_recommendations:
         )
         for rec in recommendations:
             recommendation_card(rec)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TAB 5 — COURSE MAP
+# ═══════════════════════════════════════════════════════════════════════════════
+
+with tab_map:
+    section_header(
+        "Courses Played",
+        "Map of every course in your data — hover over a pin to see your scores",
+    )
+    render_course_map(rounds)
