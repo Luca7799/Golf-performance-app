@@ -1,0 +1,96 @@
+# Golfshot Column Mapping Configuration
+# Maps possible Golfshot CSV export column names to internal standard names.
+# Add any column name variants your export uses under the appropriate key.
+
+required:
+  date:
+    - "Date"
+    - "date"
+    - "Round Date"
+    - "round_date"
+    - "RoundDate"
+  course:
+    - "Course"
+    - "course"
+    - "Course Name"
+    - "CourseName"
+    - "course_name"
+  hole:
+    - "Hole"
+    - "hole"
+    - "Hole Number"
+    - "HoleNumber"
+    - "hole_number"
+    - "Hole #"
+  par:
+    - "Par"
+    - "par"
+    - "Hole Par"
+    - "HolePar"
+  score:
+    - "Score"
+    - "score"
+    - "Strokes"
+    - "strokes"
+    - "Gross Score"
+    - "GrossScore"
+
+optional:
+  putts:
+    - "Putts"
+    - "putts"
+    - "Putting"
+    - "putting"
+    - "Number of Putts"
+    - "NumPutts"
+  fairway_hit:
+    - "Fairway Hit"
+    - "fairway_hit"
+    - "Fairway"
+    - "FIR"
+    - "Fairways Hit"
+    - "fairways_hit"
+    - "Fairway in Regulation"
+  gir:
+    - "GIR"
+    - "gir"
+    - "Green in Regulation"
+    - "Green Hit"
+    - "green_in_regulation"
+    - "Greens in Regulation"
+  penalties:
+    - "Penalties"
+    - "penalties"
+    - "Penalty Strokes"
+    - "penalty_strokes"
+    - "Penalty"
+    - "penalty"
+  distance:
+    - "Distance"
+    - "distance"
+    - "Yards"
+    - "yards"
+    - "Metres"
+    - "metres"
+    - "Meters"
+    - "meters"
+  club:
+    - "Club"
+    - "club"
+    - "Club Used"
+    - "club_used"
+    - "Club Selection"
+
+# Thresholds for recommendation engine
+thresholds:
+  gir_poor: 40          # GIR % below this = weak approach
+  gir_moderate: 55      # GIR % below this = inconsistent approach
+  putts_high: 36        # Putts/round above this = significant issue
+  putts_moderate: 32    # Putts/round above this = moderate issue
+  fairway_poor: 40      # Fairway % below this = inaccurate driving
+  fairway_moderate: 55  # Fairway % below this = inconsistent driving
+  penalties_high: 2     # Penalties/round above this = poor risk management
+  penalties_moderate: 1 # Penalties/round above this = occasional poor decisions
+  par3_avg_poor: 1.5    # Score vs par on par 3s above this = weakness
+  par5_avg_poor: 0.5    # Score vs par on par 5s above this = underperformance
+  back_nine_gap: 3      # Back nine worse than front by this many strokes avg = fatigue
