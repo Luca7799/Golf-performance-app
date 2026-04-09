@@ -228,7 +228,7 @@ with tab_overview:
 
     # Score trend chart
     section_header("Score Trend", "Your gross score for each round over time")
-    score_trend_chart(rounds)
+    score_trend_chart(rounds, key="score_trend_overview")
 
     # Biggest weakness callout
     weakness = insights.get("weakness")
@@ -399,7 +399,7 @@ with tab_insights:
 
     # Score trend chart with rolling avg
     section_header("Score Trend with Rolling Average", "5-round moving average smooths out one-off rounds")
-    score_trend_chart(rounds)
+    score_trend_chart(rounds, key="score_trend_insights")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

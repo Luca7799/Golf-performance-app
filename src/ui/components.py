@@ -40,7 +40,7 @@ def section_header(title: str, subtitle: str = ""):
 
 # ── Charts ────────────────────────────────────────────────────────────────────
 
-def score_trend_chart(rounds: pd.DataFrame):
+def score_trend_chart(rounds: pd.DataFrame, key: str = "score_trend"):
     """Line chart of round scores with optional rolling average overlay."""
     if rounds.empty or "total_score" not in rounds.columns:
         no_data_notice("Upload at least 3 rounds to see your score trend.")
@@ -89,7 +89,7 @@ def score_trend_chart(rounds: pd.DataFrame):
         margin=dict(l=0, r=0, t=40, b=0),
     )
     fig.update_xaxes(tickangle=-30)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key=key)
 
 
 def hole_type_bar_chart(hole_metrics: dict):
