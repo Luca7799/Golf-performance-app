@@ -5,34 +5,27 @@ Derives deeper insights from rounds data:
   - Rolling averages (score trend over last N rounds)
   - Consistency (standard deviation of scores)
   - Front nine vs back nine comparison
+  - Last 5 vs previous 5 rounds comparison
   - Identifying the biggest scoring weakness
   - Plain-English trend narrative
 """
 
 import pandas as pd
 import numpy as np
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 
 def rolling_avg_score(rounds: pd.DataFrame, window: int = 5) -> pd.DataFrame:
-    """
-    Add a rolling average score column to the rounds DataFrame.
-    Returns rounds with an added 'rolling_avg_score' column.
-    Requires at least `window` rounds; NaN otherwise.
-    """
     if "total_score" not in rounds.columns or rounds.empty:
         return rounds
     df = rounds.copy()
-    df["rolling_avg_score"] = df["total_score"].rolling(window=window, min_periods=window).mean().round(1)
+    df["rolling_avg_score"] = (
+        df["total_score"].rolling(window=window, min_periods=window).mean().round(1)
+    )
     return df
 
 
 def score_consistency(rounds: pd.DataFrame) -> dict:
-    """
-    Returns consistency metrics:
-      - std_dev: standard deviation of round scores
-      - consistency_label: "Very Consistent" | "Consistent" | "Variable" | "Highly Variable"
-    """
     if "total_score" not in rounds.columns or len(rounds) < 3:
         return {}
 
@@ -47,17 +40,12 @@ def score_consistency(rounds: pd.DataFrame) -> dict:
         label = "Highly Variable"
 
     return {
-        "std_dev": round(std, 1),
+        "std_dev": round(float(std), 1),
         "consistency_label": label,
     }
 
 
 def front_back_nine(df: pd.DataFrame) -> dict:
-    """
-    Compare front nine (holes 1–9) vs back nine (holes 10–18) scoring.
-    Requires hole-level DataFrame with 'hole', 'score', 'par' columns.
-    Returns average score vs par for each half, and the gap.
-    """
     if df.empty or not all(c in df.columns for c in ["hole", "score", "par"]):
         return {}
 
@@ -70,25 +58,71 @@ def front_back_nine(df: pd.DataFrame) -> dict:
     if pd.isna(front) or pd.isna(back):
         return {}
 
-    gap = round(back - front, 2)
+    gap = round(float(back - front), 2)
     return {
-        "front_nine_avg_vs_par": round(front, 2),
-        "back_nine_avg_vs_par": round(back, 2),
+        "front_nine_avg_vs_par": round(float(front), 2),
+        "back_nine_avg_vs_par": round(float(back), 2),
         "back_vs_front_gap": gap,
         "worse_half": "Back Nine" if gap > 0 else "Front Nine" if gap < 0 else "Equal",
     }
 
 
+def last5_vs_prev5(rounds: pd.DataFrame) -> dict:
+    """
+    Compare the last 5 rounds against the 5 rounds before that.
+    Requires at least 6 rounds. With 6–9 rounds uses all preceding rounds as baseline.
+
+    Returns direction per area (score, GIR, putts, fairway) and magnitude.
+    """
+    n = len(rounds)
+    if n < 6:
+        return {}
+
+    last5 = rounds.tail(5)
+    prev = rounds.iloc[-(min(n, 10)):-5] if n >= 10 else rounds.head(n - 5)
+
+    result: dict = {"rounds_compared": min(n - 5, 5)}
+
+    def _compare(col: str) -> Optional[dict]:
+        if col not in rounds.columns:
+            return None
+        l = last5[col].dropna().mean()
+        p = prev[col].dropna().mean()
+        if pd.isna(l) or pd.isna(p):
+            return None
+        delta = round(float(l - p), 2)
+        return {"last5": round(float(l), 1), "prev": round(float(p), 1), "delta": delta}
+
+    score_cmp = _compare("total_score")
+    if score_cmp:
+        result["score"] = score_cmp
+        # For score: negative delta = improving
+        result["score_direction"] = (
+            "improving" if score_cmp["delta"] < -0.5
+            else "declining" if score_cmp["delta"] > 0.5
+            else "stable"
+        )
+
+    gir_cmp = _compare("gir_pct")
+    if gir_cmp:
+        result["gir"] = gir_cmp
+
+    putts_cmp = _compare("putts_per_round")
+    if putts_cmp:
+        result["putts"] = putts_cmp
+
+    fw_cmp = _compare("fairway_pct")
+    if fw_cmp:
+        result["fairway"] = fw_cmp
+
+    return result
+
+
 def biggest_weakness(metrics: dict, hole_metrics: dict) -> str:
-    """
-    Identifies the single biggest scoring weakness based on available metrics.
-    Returns a plain-English string.
-    """
     candidates: List[Tuple[float, str]] = []
 
     gir = metrics.get("avg_gir_pct")
     if gir is not None:
-        # Normalise: lower GIR % = bigger problem. Map to a penalty score.
         candidates.append((max(0, 60 - gir) * 0.05, f"Approach play (GIR: {gir:.0f}%)"))
 
     putts = metrics.get("avg_putts_per_round")
@@ -111,10 +145,6 @@ def biggest_weakness(metrics: dict, hole_metrics: dict) -> str:
 
 
 def trend_narrative(rounds: pd.DataFrame, metrics: dict) -> str:
-    """
-    Generate a plain-English summary of the player's recent trend.
-    Based on the last 5 rounds vs overall average.
-    """
     n = len(rounds)
     if n < 5:
         return f"Upload more rounds (you have {n} — aim for at least 5) to see a trend summary."
@@ -137,12 +167,11 @@ def trend_narrative(rounds: pd.DataFrame, metrics: dict) -> str:
     elif direction == "declining":
         return (
             f"Your recent rounds are slightly higher than your average. "
-            f"Your last 5 rounds average {last5:.1f} vs your overall average of {overall:.1f} "
-            f"(+{trend:.1f}). Check the recommendations below to identify what to focus on."
+            f"Last 5 rounds: {last5:.1f} vs overall average of {overall:.1f} "
+            f"(+{trend:.1f}). Check the recommendations below to focus your practice."
         )
     else:
         return (
             f"Your scoring has been consistent recently. "
-            f"Your last 5 rounds average {last5:.1f}, "
-            f"close to your overall average of {overall:.1f}."
+            f"Last 5 rounds average {last5:.1f}, close to your overall average of {overall:.1f}."
         )
