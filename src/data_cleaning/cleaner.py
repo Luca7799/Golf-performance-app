@@ -2,8 +2,12 @@
 data_cleaning/cleaner.py
 
 Takes the raw DataFrame from loader.py and produces a clean, typed DataFrame
-ready for metric calculation. Handles missing values, type coercion, and
-boolean normalisation for fairway_hit / gir columns.
+ready for metric calculation.
+
+Two entry-points:
+  clean(df)             — hole-level data (Golfshot): type coercion + bool parsing
+  clean_round_level(df) — round-level data (ShotZoom): numeric coercion + sanity filters
+Both return (cleaned_df, skipped_row_count).
 """
 
 import pandas as pd
@@ -86,6 +90,68 @@ def clean(df: pd.DataFrame) -> Tuple[pd.DataFrame, int]:
     df = df.reset_index(drop=True)
     skipped = initial_len - len(df)
 
+    return df, skipped
+
+
+def clean_round_level(df: pd.DataFrame) -> Tuple[pd.DataFrame, int]:
+    """
+    Clean a round-level DataFrame (one row = one round, e.g. ShotZoom exports).
+
+    Expects columns (some optional):
+        date, course, total_score, fairway_pct, gir_pct, putts_per_round, total_penalties
+
+    Returns
+    -------
+    rounds : pd.DataFrame
+        Cleaned, sorted rounds with round_id added.
+    skipped : int
+        Number of rows dropped.
+    """
+    df = df.copy()
+    initial_len = len(df)
+
+    # --- Date ---
+    if "date" in df.columns:
+        df["date"] = pd.to_datetime(df["date"], errors="coerce")
+
+    # --- Numeric columns ---
+    for col in ["total_score", "fairway_pct", "gir_pct", "putts_per_round", "total_penalties"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    # --- String columns ---
+    for col in ["course"]:
+        if col in df.columns:
+            df[col] = df[col].astype(str).str.strip()
+            df[col] = df[col].replace({"nan": np.nan, "": np.nan})
+
+    # --- Drop rows missing any required field ---
+    required_present = [c for c in ["date", "course", "total_score"] if c in df.columns]
+    df = df.dropna(subset=required_present)
+
+    # --- Sanity filters ---
+    if "total_score" in df.columns:
+        # Filter clearly invalid scores: anything below 60 is a 9-hole round or corrupted entry
+        # (even scratch golfers rarely break 65; 60+ is a safe floor for 18-hole rounds)
+        df = df[df["total_score"] >= 60]
+        df = df[df["total_score"] <= 200]
+
+    # --- Percentage range guard (0–100) ---
+    for pct_col in ["fairway_pct", "gir_pct"]:
+        if pct_col in df.columns:
+            df = df[(df[pct_col].isna()) | ((df[pct_col] >= 0) & (df[pct_col] <= 100))]
+
+    # --- Estimate score vs par (assumes par 72; most courses are par 71-73) ---
+    if "total_score" in df.columns:
+        df["score_vs_par"] = df["total_score"] - 72
+
+    # --- Sort by date, assign round_id ---
+    if "date" in df.columns:
+        df = df.sort_values("date").reset_index(drop=True)
+
+    df.insert(0, "round_id", range(1, len(df) + 1))
+
+    skipped = initial_len - len(df)
     return df, skipped
 
 

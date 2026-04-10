@@ -81,6 +81,62 @@ optional:
     - "club_used"
     - "Club Selection"
 
+# ── Round-level format (ShotZoom / aggregated exports) ─────────────────────
+# Used when the CSV has one row per round with pre-computed percentages,
+# rather than one row per hole (Golfshot style).
+
+round_level_required:
+  date:
+    - "Date"
+    - "date"
+    - "Round Date"
+    - "round_date"
+  course:
+    - "Course"
+    - "course"
+    - "Course Name"
+    - "CourseName"
+  total_score:
+    - "Score"
+    - "score"
+    - "Total Score"
+    - "total_score"
+    - "TotalScore"
+    - "Gross Score"
+    - "GrossScore"
+
+round_level_optional:
+  fairway_pct:
+    - "Fairway_Pct"
+    - "fairway_pct"
+    - "Fairway %"
+    - "FairwayPct"
+    - "Fairway Pct"
+    - "FairwaysPct"
+    - "Fairways Pct"
+    - "Fairways %"
+  gir_pct:
+    - "GIR_Pct"
+    - "gir_pct"
+    - "GIR %"
+    - "GIRPct"
+    - "GIR Pct"
+    - "Greens Pct"
+    - "Greens %"
+  putts_per_round:
+    - "Putts"
+    - "putts"
+    - "Putts_Per_Round"
+    - "putts_per_round"
+    - "PuttsPerRound"
+    - "Total Putts"
+  total_penalties:
+    - "Penalties"
+    - "penalties"
+    - "Penalties_Per_Round"
+    - "PenaltiesPerRound"
+    - "Total Penalties"
+
 # Thresholds for recommendation engine
 thresholds:
   gir_poor: 40          # GIR % below this = weak approach

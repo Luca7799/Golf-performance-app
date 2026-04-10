@@ -7,7 +7,7 @@ import streamlit as st
 import pandas as pd
 
 from src.data_ingestion.loader import load_csv
-from src.data_cleaning.cleaner import clean, build_rounds
+from src.data_cleaning.cleaner import clean, build_rounds, clean_round_level
 from src.metrics.calculator import compute_metrics, compute_hole_type_metrics
 from src.metrics.segmentation import (
     classify_player,
@@ -61,7 +61,7 @@ st.markdown("""
 # ── Session state ─────────────────────────────────────────────────────────────
 
 for key in ["df", "rounds", "metrics", "hole_metrics", "recommendations",
-            "insights", "segment", "coaching", "load_report"]:
+            "insights", "segment", "coaching", "load_report", "format_type"]:
     if key not in st.session_state:
         st.session_state[key] = None
 
@@ -69,16 +69,16 @@ for key in ["df", "rounds", "metrics", "hole_metrics", "recommendations",
 # ── Header ────────────────────────────────────────────────────────────────────
 
 st.title("⛳ Golf Performance Analysis")
-st.caption("Upload your Golfshot export to get personalised coaching insights.")
+st.caption("Upload your Golfshot or ShotZoom CSV export to get personalised coaching insights.")
 st.divider()
 
 
 # ── File upload & pipeline ────────────────────────────────────────────────────
 
 uploaded_file = st.file_uploader(
-    "Upload your Golfshot CSV export",
+    "Upload your golf CSV export (Golfshot or ShotZoom)",
     type=["csv"],
-    help="Export scorecard data from Golfshot as CSV, then upload it here.",
+    help="Supports Golfshot hole-by-hole exports and ShotZoom round-summary exports.",
 )
 
 if uploaded_file is not None:
@@ -86,26 +86,50 @@ if uploaded_file is not None:
         with st.spinner("Reading your data..."):
             raw_df, load_report = load_csv(uploaded_file)
 
+        format_type = load_report.get("format_type", "hole_level")
+
         if load_report["missing_required"]:
-            st.error(
-                f"Your file is missing required columns: "
-                f"**{', '.join(load_report['missing_required'])}**. "
-                f"Please check your CSV includes date, hole, par, and score."
-            )
+            if format_type == "round_level":
+                st.error(
+                    f"Your file is missing required columns: "
+                    f"**{', '.join(load_report['missing_required'])}**. "
+                    f"Please check your CSV includes Date, Course, and Score."
+                )
+            else:
+                st.error(
+                    f"Your file is missing required columns: "
+                    f"**{', '.join(load_report['missing_required'])}**. "
+                    f"Please check your CSV includes date, hole, par, and score."
+                )
             st.stop()
 
         with st.spinner("Analysing your game..."):
-            df, skipped     = clean(raw_df)
-            rounds          = build_rounds(df)
 
-            if df.empty or rounds.empty:
-                st.error("No valid rounds found. Please check your CSV and try again.")
-                st.stop()
+            if format_type == "round_level":
+                # ── Round-level path (ShotZoom) ──────────────────────────────
+                rounds, skipped = clean_round_level(raw_df)
+                df = pd.DataFrame()      # no hole-level data available
 
-            rounds          = rolling_avg_score(rounds, window=5)
-            metrics         = compute_metrics(rounds)
-            hole_metrics    = compute_hole_type_metrics(df)
-            consistency     = score_consistency(rounds)
+                if rounds.empty:
+                    st.error("No valid rounds found. Please check your CSV and try again.")
+                    st.stop()
+
+                hole_metrics = {}        # no par-breakdown without hole data
+
+            else:
+                # ── Hole-level path (Golfshot) ───────────────────────────────
+                df, skipped  = clean(raw_df)
+                rounds       = build_rounds(df)
+
+                if df.empty or rounds.empty:
+                    st.error("No valid rounds found. Please check your CSV and try again.")
+                    st.stop()
+
+                hole_metrics = compute_hole_type_metrics(df)
+
+            rounds       = rolling_avg_score(rounds, window=5)
+            metrics      = compute_metrics(rounds)
+            consistency  = score_consistency(rounds)
 
             # Segmentation & coaching layer
             avg_score = metrics.get("avg_score", 100)
@@ -138,17 +162,25 @@ if uploaded_file is not None:
             "hole_metrics": hole_metrics, "recommendations": recommendations,
             "insights": insights, "coaching": coaching,
             "load_report": load_report,
+            "format_type": format_type,
         })
 
         n_rounds    = metrics.get("rounds_played", 0)
         missing_opt = load_report.get("missing_optional", [])
         col1, col2  = st.columns([3, 1])
         with col1:
-            st.success(
-                f"✅ Loaded **{n_rounds} round{'s' if n_rounds != 1 else ''}** "
-                f"({len(df)} holes)"
-                + (f" — {skipped} rows skipped" if skipped > 0 else "")
-            )
+            if format_type == "round_level":
+                st.success(
+                    f"✅ Loaded **{n_rounds} round{'s' if n_rounds != 1 else ''}** "
+                    f"(round-level summary format)"
+                    + (f" — {skipped} rows skipped" if skipped > 0 else "")
+                )
+            else:
+                st.success(
+                    f"✅ Loaded **{n_rounds} round{'s' if n_rounds != 1 else ''}** "
+                    f"({len(df)} holes)"
+                    + (f" — {skipped} rows skipped" if skipped > 0 else "")
+                )
         with col2:
             if missing_opt:
                 with st.expander("ℹ️ Some metrics unavailable"):
@@ -166,12 +198,20 @@ if uploaded_file is not None:
 if st.session_state.rounds is None:
     st.markdown("""
 ---
-### How to export from Golfshot
+### Supported file formats
+
+**🔵 Golfshot (hole-by-hole)**
 1. Open Golfshot on your phone
 2. Go to **Rounds** → select rounds → **Export** → **CSV**
 3. Upload the file above
 
-**What you'll get:**
+Unlocks: hole type breakdown (par 3/4/5), front vs back nine analysis.
+
+**🟢 ShotZoom (round-summary)**
+1. Use a round-level CSV with columns: `Date`, `Course`, `Score`, `Fairway_Pct`, `GIR_Pct`
+2. Upload the file above — format is detected automatically
+
+The format is detected automatically. Both give you:
 - 🏌️ Player profile & skill level classification
 - 📊 Strokes-gained style analysis
 - 🎯 Top 3 prioritised recommendations with practice drills
@@ -189,6 +229,7 @@ hole_metrics    = st.session_state.hole_metrics
 recommendations = st.session_state.recommendations
 insights        = st.session_state.insights
 coaching        = st.session_state.coaching
+format_type     = st.session_state.format_type or "hole_level"
 n_rounds        = metrics.get("rounds_played", 0)
 
 segment       = coaching["segment"]
@@ -227,10 +268,11 @@ with tab_overview:
                     help_text="Your mean gross score per round.")
     with c2:
         svp = metrics.get("avg_score_vs_par")
+        par_note = " (assumes par 72)" if format_type == "round_level" else ""
         metric_card(
             "Avg vs Par",
             f"+{svp:.1f}" if svp is not None and svp >= 0 else f"{svp:.1f}" if svp is not None else None,
-            help_text="How many strokes over or under par you average per round.",
+            help_text=f"How many strokes over or under par you average per round.{par_note}",
         )
     with c3:
         metric_card("Rounds Played", n_rounds,
@@ -392,7 +434,13 @@ with tab_metrics:
 
     st.divider()
     section_header("Performance by Hole Type", "How you score on par 3s, 4s, and 5s")
-    hole_type_bar_chart(hole_metrics)
+    if format_type == "round_level" and not hole_metrics:
+        no_data_notice(
+            "Hole type breakdown (par 3/4/5) requires hole-by-hole data (Golfshot export). "
+            "Your file is a round-summary format — this chart is not available."
+        )
+    else:
+        hole_type_bar_chart(hole_metrics)
 
     st.divider()
     section_header("All Rounds")
@@ -467,6 +515,11 @@ with tab_insights:
             st.metric("Gap", f"{gap:+.2f} strokes/hole",
                       help=f"Your {worse} is harder on average.")
         front_back_chart(fb)
+    elif format_type == "round_level":
+        no_data_notice(
+            "Front/back nine breakdown requires hole-by-hole data (Golfshot export). "
+            "Your file is a round-summary format — this section is not available."
+        )
     else:
         no_data_notice("Not enough hole data to compare front and back nine.")
 

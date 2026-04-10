@@ -181,13 +181,14 @@ def generate_recommendations(
     gir = metrics.get("avg_gir_pct")
     if gir is not None:
         if gir < gir_poor:
+            # Impact = gap to moderate (full improvement range, not just to threshold)
             recs.append({
                 "issue": "Weak Approach Play",
                 "headline": "You're missing most greens — this is costing you strokes every round",
-                "supporting_data": f"You hit {gir:.0f}% of greens in regulation (your level target: {int(gir_poor)}%+)",
+                "supporting_data": f"You hit {gir:.0f}% of greens in regulation (your level target: {int(gir_moderate)}%+)",
                 "recommendation": "Focus on accuracy with mid and short irons from 100–150 yards",
                 "practice_focus": "Hit to targets — not distance. Aim for 70% of shots within 20 ft of pin.",
-                "stroke_impact": round(max(0, (gir_poor - gir) / 100 * 18 * 0.7), 1),
+                "stroke_impact": round(max(0, (gir_moderate - gir) / 100 * 18 * 0.7), 1),
                 "priority": "high",
                 "drills": [_DRILLS["iron_accuracy"], _DRILLS["half_swing"]],
             })
@@ -210,10 +211,10 @@ def generate_recommendations(
             recs.append({
                 "issue": "Too Many Putts",
                 "headline": "Too many putts per round — one of the fastest areas to improve",
-                "supporting_data": f"You average {putts:.1f} putts/round (your level target: under {int(putts_high)})",
+                "supporting_data": f"You average {putts:.1f} putts/round (your level target: under {int(putts_moderate)})",
                 "recommendation": "Eliminate 3-putts with lag putting, then build short putt confidence",
                 "practice_focus": "Lag putting first — distance control from 20–40 ft. Then gate drill for 5–6 footers.",
-                "stroke_impact": round(max(0, putts - putts_high), 1),
+                "stroke_impact": round(max(0, putts - putts_moderate), 1),
                 "priority": "high",
                 "drills": [_DRILLS["lag_putting"], _DRILLS["gate_drill"]],
             })
@@ -236,10 +237,10 @@ def generate_recommendations(
             recs.append({
                 "issue": "Inaccurate Driving",
                 "headline": "You're missing most fairways — everything gets harder from the rough",
-                "supporting_data": f"You hit {fw:.0f}% of fairways (your level target: {int(fw_poor)}%+)",
+                "supporting_data": f"You hit {fw:.0f}% of fairways (your level target: {int(fw_moderate)}%+)",
                 "recommendation": "Prioritise fairway over distance — club down when in doubt",
                 "practice_focus": "Swing at 80% off the tee. A fairway at 230 beats rough at 270 every time.",
-                "stroke_impact": round(max(0, (fw_poor - fw) / 100 * 14 * 0.35), 1),
+                "stroke_impact": round(max(0, (fw_moderate - fw) / 100 * 14 * 0.35), 1),
                 "priority": "high",
                 "drills": [_DRILLS["alignment_rod"], _DRILLS["club_down"]],
             })
@@ -262,10 +263,10 @@ def generate_recommendations(
             recs.append({
                 "issue": "Poor Course Management",
                 "headline": "Penalty strokes are directly inflating your score every round",
-                "supporting_data": f"You take {pen:.1f} penalties/round (target: under {pen_high:.0f})",
+                "supporting_data": f"You take {pen:.1f} penalties/round (target: under {pen_moderate:.0f})",
                 "recommendation": "Play conservatively near hazards — the safe route is nearly always the right call",
                 "practice_focus": "Apply the 7/10 rule: only attempt a risky shot if you'd make it 7 times out of 10.",
-                "stroke_impact": round(max(0, pen - pen_high), 1),
+                "stroke_impact": round(max(0, pen - pen_moderate), 1),
                 "priority": "high",
                 "drills": [_DRILLS["risk_reward"], _DRILLS["layup_rule"]],
             })
